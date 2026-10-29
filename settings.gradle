@@ -1,0 +1,38 @@
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+        mavenCentral()
+        maven {
+            name = 'Architectury'
+            url = 'https://maven.architectury.dev/'
+        }
+        maven {
+            name = 'Fabric'
+            url = 'https://maven.fabricmc.net/'
+        }
+        maven {
+            name = 'NeoForged'
+            url = 'https://maven.neoforged.net/releases/'
+        }
+        maven {
+            name = 'Forge'
+            url = 'https://maven.minecraftforge.net/'
+        }
+    }
+}
+
+rootProject.name = 'Spawn_Wandering_Trader'
+
+def nodeRoots = ['versions']
+if (providers.gradleProperty('verify').isPresent()) {
+    nodeRoots << 'verify'
+}
+nodeRoots.each { nodeRoot ->
+    def nodeRootDir = new File(rootDir, nodeRoot)
+    if (nodeRootDir.directory) {
+        nodeRootDir.listFiles().findAll { it.directory }.sort { it.name }.each { node ->
+            include(node.name)
+            project(":${node.name}").projectDir = node
+        }
+    }
+}

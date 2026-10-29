@@ -1,0 +1,29 @@
+plugins {
+    id 'dev.architectury.loom' version "${architectury_loom_version}" apply false
+    id 'dev.architectury.loom-no-remap' version "${architectury_loom_version}" apply false
+}
+
+defaultTasks 'collectJars'
+
+subprojects {
+    apply from: rootProject.file('gradle/node.gradle')
+}
+
+def isReleaseNode = { it.findProperty('release_jar') != 'false' }
+
+tasks.register('buildAll') {
+    dependsOn subprojects.findAll(isReleaseNode).collect { "${it.path}:build".toString() }
+}
+
+tasks.register('collectJars') {
+    dependsOn subprojects.findAll(isReleaseNode).collect { "${it.path}:copyReleaseJar".toString() }
+}
+
+tasks.register('verifyAll') {
+    dependsOn subprojects.findAll { !isReleaseNode(it) }.collect { "${it.path}:compileJava".toString() }
+    doFirst {
+        if (!providers.gradleProperty('verify').isPresent()) {
+            throw new GradleException('verifyAll needs -Pverify')
+        }
+    }
+}

@@ -1,0 +1,118 @@
+def loaderName = project.property('loader')
+def isObfuscated = project.property('obfuscated').toBoolean()
+def javaRelease = project.property('java_version').toInteger()
+def modId = project.property('mod_id')
+def loaderResources = project.findProperty('loader_resources') ?: loaderName
+def mcLabel = project.findProperty('mc_label') ?: project.property('minecraft_version')
+
+apply plugin: 'java-library'
+apply plugin: (isObfuscated ? 'dev.architectury.loom' : 'dev.architectury.loom-no-remap')
+
+group = project.property('maven_group')
+version = "${project.property('mod_version')}+${mcLabel}"
+
+base {
+    archivesName = "${project.property('archives_name')}-${loaderName}"
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(javaRelease)
+    }
+    withSourcesJar()
+}
+
+sourceSets {
+    main {
+        java.srcDirs = [
+                rootProject.file('src/main/java'),
+                rootProject.file("src/variants/permissions/${project.property('variant_permissions')}/java"),
+                rootProject.file("src/variants/trader/${project.property('variant_trader')}/java"),
+                rootProject.file("src/loader/${loaderName}/java")
+        ]
+        resources.srcDirs = [
+                rootProject.file('src/main/resources'),
+                rootProject.file("src/loader/${loaderResources}/resources")
+        ]
+    }
+}
+
+loom {
+    mods {
+        create(modId) {
+            sourceSet sourceSets.main
+        }
+    }
+    if (loaderName == 'forge') {
+        forge {
+            mixinConfig "${modId}.mixins.json"
+        }
+    }
+}
+
+repositories {
+    if (loaderName == 'neoforge') {
+        maven {
+            name = 'NeoForged'
+            url = 'https://maven.neoforged.net/releases/'
+        }
+    }
+    if (loaderName == 'forge') {
+        maven {
+            name = 'Forge'
+            url = 'https://maven.minecraftforge.net/'
+        }
+    }
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${project.property('minecraft_version')}"
+    if (isObfuscated) {
+        mappings loom.officialMojangMappings()
+    }
+    if (loaderName == 'fabric') {
+        add(isObfuscated ? 'modImplementation' : 'implementation', "net.fabricmc:fabric-loader:${project.property('fabric_loader_version')}")
+    } else if (loaderName == 'forge') {
+        forge "net.minecraftforge:forge:${project.property('minecraft_version')}-${project.property('forge_version')}"
+    } else {
+        neoForge "net.neoforged:neoforge:${project.property('neoforge_version')}"
+    }
+}
+
+def metadata = [
+        mod_id                  : modId,
+        mod_name                : project.property('mod_name'),
+        mod_description         : project.property('mod_description'),
+        version                 : project.version.toString(),
+        java_version            : javaRelease.toString(),
+        java_compat             : "JAVA_${javaRelease}".toString(),
+        fabric_loader_min       : project.findProperty('fabric_loader_min') ?: '',
+        minecraft_range_fabric  : project.findProperty('minecraft_range_fabric') ?: '',
+        neoforge_range          : project.findProperty('neoforge_range') ?: '',
+        minecraft_range_neoforge: project.findProperty('minecraft_range_neoforge') ?: '',
+        forge_range             : project.findProperty('forge_range') ?: '',
+        minecraft_range_forge   : project.findProperty('minecraft_range_forge') ?: ''
+]
+
+processResources {
+    inputs.properties(metadata)
+    filesMatching(['fabric.mod.json', '*.mixins.json', 'META-INF/neoforge.mods.toml', 'META-INF/mods.toml']) {
+        expand(metadata)
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release = javaRelease
+}
+
+jar {
+    from(rootProject.file('LICENSE')) {
+        rename { "${it}_${project.property('archives_name')}" }
+    }
+}
+
+tasks.register('copyReleaseJar', Copy) {
+    from({ tasks.getByName(isObfuscated ? 'remapJar' : 'jar') })
+    into(rootProject.layout.buildDirectory.dir('libs'))
+}

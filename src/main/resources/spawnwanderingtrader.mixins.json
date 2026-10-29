@@ -1,0 +1,14 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "winord.spawnwanderingtrader.mixin",
+  "compatibilityLevel": "${java_compat}",
+  "mixins": [
+    "MixinCommands",
+    "ServerLevelAccessor",
+    "WanderingTraderSpawnerInvoker"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
